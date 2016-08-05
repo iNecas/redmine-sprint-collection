@@ -36,6 +36,7 @@ end
 def gather_issues(status_id, options)
   url = "#{options[:url]}/issues.json?status_id=#{status_id}&updated_on=#{options[:date]}" +
     "&assigned_to_id=#{user_to_id(options[:user])}&limit=100"
+    puts url
   uri = URI(URI.escape(url))
   response = Net::HTTP.get(uri)
   JSON.parse(response)
@@ -51,6 +52,22 @@ def modify_target_version!(issue_id, options)
   puts response.code
   puts response.body
 end
+
+def print_issues(issues, type, options)
+  puts
+  puts '-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-'
+  puts
+  puts 'Found a total of: ' + issues['total_count'].to_s.bold + " issues " +
+    type.bold + " for #{options[:user].bold}"
+  puts issues['issues'].map { |issue| "#{issue['id']} - #{issue['project']['name']} - #{issue['subject']}"  }.join("\n").bold
+end
+
+
+#
+# Send PUT request to each issue to modify target version
+# X-Redmine-API-Key must contain your API key
+# { :fixed_version_id => 118 }
+#
 
 options = Hash.new('')
 
@@ -89,7 +106,7 @@ opt_parser.parse!
 
 # Enforce the presence of user, target and url
 mandatory = [:user, :url, :target, :date]
-missing = mandatory.select{ |param| options[param].nil? }
+missing = mandatory.select{ |param| options[param] == '' }
 unless missing.empty?
   puts opt_parser
   puts
@@ -98,23 +115,17 @@ end
 
 ready_for_testing = gather_issues(7, options)
 closed = gather_issues(5, options)
-
-#ready_for_testing = JSON.parse(File.read('test_data.json'))
-puts
-puts '-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-'
-puts
-puts 'Found a total of: ' + ready_for_testing['total_count'].to_s.bold + " issues " +
-  "ready for testing".bold + " for #{options[:user].bold}"
-puts ready_for_testing['issues'].map { |issue| "#{issue['id']} - #{issue['project']['name']} - #{issue['subject']}"  }.join("\n").bold
-
 # projects.theforeman.org/issues.json?status_id=7&assigned_to_id=6626&updated_on=><2016-07-26|2016-08-09
-#
-# Send PUT request to each issue to modify target version
-# X-Redmine-API-Key must contain your API key
-# { :fixed_version_id => 118 }
-#
-ready_for_testing['issues'].each do |issue|
-  # skip if issue is in discovery or has a target_version we want
-  # modify_target_version(issue['id'], options)
-end
+#ready_for_testing = JSON.parse(File.read('test_data.json'))
 
+print_issues(ready_for_testing, 'ready for testing', options)
+print_issues(closed, 'closed',  options)
+
+ready_for_testing['issues'].each do |issue|
+  next if issue['project']['name'] == 'Discovery'
+  modify_target_version(issue['id'], options)
+end
+closed['issues'].each do |issue|
+  next if issue['project']['name'] == 'Discovery'
+  modify_target_version(issue['id'], options)
+end
