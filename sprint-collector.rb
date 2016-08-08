@@ -21,8 +21,7 @@ end
   718 => /Lukas|Zapletal|lzap/i
 }
 
-# 118 - team daniel - iteration 1
-@target_version = 118
+# target_version - 118 - team daniel - iteration 1
 
 def user_to_id(user)
   # Match user input with any name.
@@ -47,10 +46,9 @@ def modify_target_version!(issue_id, options)
   req = Net::HTTP::Put.new(uri,
                            { 'Content-Type' => 'application/json',
                              'X-Redmine-API-Key' => File.read('redminekey') })
-  req.body = { :issue => { :fixed_version_id => @target_version } }.to_json
+  req.body = { :issue => { :fixed_version_id => options[:target] } }.to_json
   response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
-  puts response.code
-  puts response.body
+  puts "#{response.code} - #{response.body} - when changing #{issue_id} target version to #{options[:target]}"
 end
 
 def print_issues(issues, type, options)
@@ -123,9 +121,17 @@ print_issues(closed, 'closed',  options)
 
 ready_for_testing['issues'].each do |issue|
   next if issue['project']['name'] == 'Discovery'
-  modify_target_version(issue['id'], options)
+  if !issue['fixed_version'].nil? && issue['fixed_version']['id'] == options[:target]
+    puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
+    next
+  end
+  modify_target_version!(issue['id'], options)
 end
 closed['issues'].each do |issue|
   next if issue['project']['name'] == 'Discovery'
-  modify_target_version(issue['id'], options)
+  if !issue['fixed_version'].nil? && issue['fixed_version']['id'] == options[:target]
+    puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
+    next
+  end
+  modify_target_version!(issue['id'], options)
 end
