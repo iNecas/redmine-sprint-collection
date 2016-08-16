@@ -18,7 +18,12 @@ end
   5096 => /Tomer|Brisker|tbrisker/i,
   3517 => /Daniel|Lobato|dlobatog/i,
   6040 => /Amir|Feferkuchen|afeferku/i,
-  718 => /Lukas|Zapletal|lzap/i
+  2429 => /Ivan|Necas|inecas/i,
+  5023 => /Ori|Rabin|orabin/i,
+  3295 => /Dmitri|Dolguikh|witlessbird/i,
+  3946 => /Martin|Bacovsk/i,
+  5432 => /Shim|Shtein/i,
+  4731 => /Adam|Ruzicka/i,
 }
 
 # target_version - 118 - team daniel - iteration 1
@@ -33,16 +38,21 @@ end
 
 # Gather all IDs for issues on Ready for Testing/Closing
 def gather_issues(status_id, options)
-  url = "#{options[:url]}/issues.json?status_id=#{status_id}&updated_on=#{options[:date]}" +
-    "&assigned_to_id=#{user_to_id(options[:user])}&limit=100"
-    puts url
-  uri = URI(URI.escape(url))
-  response = Net::HTTP.get(uri)
-  JSON.parse(response)
+  users = options[:user].split(',')
+  users.map do |user|
+    url = "#{options[:url]}/issues.json?status_id=#{status_id}&updated_on=#{options[:date]}" +
+      "&assigned_to_id=#{user_to_id(user)}&limit=100"
+      puts url
+    uri = URI(URI.escape(url))
+    response = Net::HTTP.get(uri)
+    JSON.parse(response)['issues']
+  end.flatten(1)
 end
 
 def modify_target_version!(issue_id, options)
   uri = URI(URI.escape("#{options[:url]}/issues/#{issue_id}.json"))
+  puts "#{options[:url]}/issues/#{issue_id} modify with options #{ options.inspect }"
+  return
   req = Net::HTTP::Put.new(uri,
                            { 'Content-Type' => 'application/json',
                              'X-Redmine-API-Key' => File.read('redminekey') })
@@ -55,9 +65,9 @@ def print_issues(issues, type, options)
   puts
   puts '-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-'
   puts
-  puts 'Found a total of: ' + issues['total_count'].to_s.bold + " issues " +
+  puts 'Found a total of: ' + issues.size.to_s.bold + " issues " +
     type.bold + " for #{options[:user].bold}"
-  puts issues['issues'].map { |issue| "#{issue['id']} - #{issue['project']['name']} - #{issue['subject']}"  }.join("\n").bold
+  puts issues.map { |issue| "#{issue['id']} - #{issue['project']['name']} - #{issue['subject']}"  }.join("\n").bold
 end
 
 
@@ -119,18 +129,18 @@ closed = gather_issues(5, options)
 print_issues(ready_for_testing, 'ready for testing', options)
 print_issues(closed, 'closed',  options)
 
-ready_for_testing['issues'].each do |issue|
-  next if issue['project']['name'] == 'Discovery'
-  if !issue['fixed_version'].nil? && issue['fixed_version']['id'] == options[:target]
-    puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
+ready_for_testing.each do |issue|
+  #next if issue['project']['name'] == 'Discovery'
+  if !issue['fixed_version'].nil? && issue['fixed_version']['id'].to_s == options[:target].to_s
+    #puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
     next
   end
   modify_target_version!(issue['id'], options)
 end
-closed['issues'].each do |issue|
-  next if issue['project']['name'] == 'Discovery'
-  if !issue['fixed_version'].nil? && issue['fixed_version']['id'] == options[:target]
-    puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
+closed.each do |issue|
+  #next if issue['project']['name'] == 'Discovery'
+  if !issue['fixed_version'].nil? && issue['fixed_version']['id'].to_s == options[:target].to_s
+    #puts "Issue #{issue['id']} skipped - target version already set to #{options[:target]}"
     next
   end
   modify_target_version!(issue['id'], options)
